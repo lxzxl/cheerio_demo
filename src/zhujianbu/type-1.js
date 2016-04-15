@@ -4,11 +4,12 @@
 'use strict';
 
 var fs = require('fs');
+var _ = require('lodash');
 var csv = require('to-csv');
 var casper = require('casper').create(
     {
         verbose: true,
-        logLevel: 'info'
+        logLevel: 'debug'
     }
 );
 var htmlParser = require('./htmlParser');
@@ -25,7 +26,12 @@ casper
                     return el.value !== '%' && ( el.value === '63');
                 })
                 .map(function (el) {
-                    return {name: el.innerText, value: el.value, maxPageSize: 0};
+                    return {
+                        name: el.innerText,
+                        value: el.value,
+                        maxPageSize: 0,
+                        rows: []
+                    };
                 });
         });
     })
@@ -51,12 +57,17 @@ casper
                                 var curPageSize = htmlParser.parseCurPageSize.call(this);
                                 this.log('Page: ' + curPageSize + '/' + province.maxPageSize, 'info');
                                 var rows = htmlParser.parseTR.call(this);
-                                this.log(JSON.stringify(rows), 'debug');
-                                output(province.name, rows);
+                                this.log(JSON.stringify(province.rows), 'debug');
+                                for (var i = 0; i < rows.length; i++) {
+                                    province.rows.push(r);
+                                }
+                                this.log(JSON.stringify(province.rows), 'debug');
                                 this.click('#LinkButton3');
                             })
                             .then(function done() {
                                 this.log(province.name + ' DONE', 'info');
+                                this.log(JSON.stringify(province.rows), 'debug');
+                                output(province.name, province.rows);
                             })
                     }
                 )
@@ -71,5 +82,6 @@ casper.run();
 function output(filename, lineArr, mode) {
     if (casper.options.logLevel === 'debug') return;
     mode = mode || 'a';
-    fs.write('/home/steven/MyProjects/Github/Crawlers/src/zhujianbu/outputs/' + filename + '.txt', csv(lineArr, {headers: false}), mode);
+    fs.write('/home/steven/MyProjects/Github/Crawlers/src/zhujianbu/outputs/' + filename + '.txt',
+        csv(_.uniq(lineArr), {headers: false}), mode);
 }
