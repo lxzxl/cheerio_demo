@@ -17,7 +17,7 @@ module.exports.parseMaxPageSize = function () {
 
 module.exports.parseTH = function () {
     return this.evaluate(function () {
-        return __utils__.findAll('#dgEnterpriseList tr:first-child td').map(function (td) {
+        return __utils__.findAll('#dgEnterpriseList tr:first-child td:not(:first-child)').map(function (td) {
             return td.innerText;
         })
     });
@@ -27,7 +27,7 @@ module.exports.parseTR = function () {
     return this.evaluate(function () {
         var trs = __utils__.findAll('#dgEnterpriseList tr:not(:first-child)');
         return trs.map(function (tr) {
-            return Array.prototype.slice.call(tr.querySelectorAll('td')).map(function (td) {
+            return Array.prototype.slice.call(tr.querySelectorAll('td:not(:first-child)')).map(function (td) {
                 return td.innerText;
             })
         });
