@@ -4,11 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "casperjs src/zhujianbu/type-1.js"
+    "start": "casperjs src/zhujianbu/type-1.js",
+    "convert": "casperjs src/zhujianbu/writer.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "casperjs": "^1.1.0"
+    "casperjs": "^1.1.0",
+    "to-csv": "^0.1.1"
   }
 }
