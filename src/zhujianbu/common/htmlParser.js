@@ -15,6 +15,11 @@ module.exports.parseMaxPageSize = function () {
     return matches ? parseInt(matches[1]) : null;
 };
 
+module.exports.parseTotalNum = function () {
+    var matches = this.fetchText('#labPageInfo').match(/页 (\d+)条数据/);
+    return matches ? parseInt(matches[1]) : null;
+}
+
 module.exports.parseTH = function () {
     return this.evaluate(function () {
         return __utils__.findAll('#dgEnterpriseList tr:first-child td:not(:first-child)').map(function (td) {
