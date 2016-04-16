@@ -64,8 +64,10 @@ function generateSuite() {
                                 var _obj = _.zipObject(province.header, rows[i]);
                                 _obj['地区'] = province.name;
                                 if (province.rows.add(_obj) && province.rows.length === province.totalNum) {
-                                    this.log('========>reach max num', 'debug');
+                                    this.log('========Reach Max Num========', 'info');
                                     saveData(province);
+                                    updateProvincesConfig(province);
+                                    this.exit(0);
                                 }
                             }
                             if (curPageSize < province.maxPageSize) {
@@ -101,7 +103,6 @@ function updateProvincesConfig(province) {
     var provincesConf = getProvincesConfig();
     provincesConf[province.name].lastNum = province.rows.length;
     fs.write(configPath, JSON.stringify(provincesConf, null, 2), 'w');
-    this.log(province.name + ' : ' + msg, 'info');
 }
 
 function loadTmpRows(province) {
