@@ -20,7 +20,11 @@ var _ = require('lodash');
 var casper = require('casper').create(
     {
         verbose: true,
-        logLevel: 'info'
+        logLevel: 'info',
+        pageSettings: {
+            loadImages: false,        // do not load images
+            loadPlugins: false         // do not load NPAPI plugins (Flash, Silverlight, ...)
+        }
     }
 );
 

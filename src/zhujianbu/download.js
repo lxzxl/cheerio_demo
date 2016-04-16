@@ -17,10 +17,15 @@ if (curFilePath.length > 1) {
 }
 
 var _ = require('lodash');
+var Set = require('collections/set');
 var casper = require('casper').create(
     {
         verbose: true,
-        logLevel: 'info'
+        logLevel: 'debug',
+        pageSettings: {
+            loadImages: false,        // do not load images
+            loadPlugins: false         // do not load NPAPI plugins (Flash, Silverlight, ...)
+        }
     }
 );
 
@@ -36,8 +41,7 @@ if (!provincesConf[provinceName]) process.exit(0);
 
 var province = provincesConf[provinceName];
 province.name = provinceName;
-province.rows = [];
-casper.log(JSON.stringify(province), 'debug');
+loadTmpRows(province);
 
 function generateSuite() {
     return function () {
@@ -54,22 +58,23 @@ function generateSuite() {
                     this.log(JSON.stringify(province.header), 'debug');
                     this.repeat(province.maxPageSize, function next() {// click next page button.
                             var curPageSize = htmlParser.parseCurPageSize.call(this);
-                            this.log('Page: ' + curPageSize + '/' + province.maxPageSize, 'info');
+                            this.log('========'+province.name + '====Page====' + curPageSize + '/' + province.maxPageSize, 'info');
                             var rows = htmlParser.parseTR.call(this);
                             for (var i = 0; i < rows.length; i++) {
                                 var _obj = _.zipObject(province.header, rows[i]);
                                 _obj['地区'] = province.name;
-                                this.log(JSON.stringify(_obj), 'debug');
-                                province.rows.push(_obj);
+                                if (province.rows.add(_obj) && province.rows.length === province.totalNum) {
+                                    this.log('========>reach max num', 'debug');
+                                    saveData(province);
+                                }
                             }
                             if (curPageSize < province.maxPageSize) {
                                 this.click('#LinkButton3');
                             }
                         })
-                        .then(function done() {
-                            var msg = output(province);
-                            this.log(province.name + ' : ' + msg, 'info');
-                            updateProvincesConfig();
+                        .then(function final() {
+                            saveData(province);
+                            updateProvincesConfig(province);
                         })
                 }
             );
@@ -92,27 +97,31 @@ function getProvincesConfig() {
     return JSON.parse(fs.read(configPath));
 }
 
-function updateProvincesConfig() {
+function updateProvincesConfig(province) {
     var provincesConf = getProvincesConfig();
-    provincesConf[province.name].lastNum = province.lastNum;
+    provincesConf[province.name].lastNum = province.rows.length;
     fs.write(configPath, JSON.stringify(provincesConf, null, 2), 'w');
-
+    this.log(province.name + ' : ' + msg, 'info');
 }
 
-function output(province) {
-    // if (casper.options.logLevel === 'debug') return;
+function loadTmpRows(province) {
+    var tmpFilePath = basePath + 'outputs/' + dataType + '.' + province.name + '.tmp.json';
+    province.rows = new Set(
+        fs.exists(tmpFilePath) ? JSON.parse(fs.read(tmpFilePath)) : []
+        , null
+        , function (obj) {// hash method for object.
+            return obj['注册证书号'];
+        }
+    );
+}
+
+function saveData(province) {
     var tmpFilePath = basePath + 'outputs/' + dataType + '.' + province.name + '.tmp.json';
     var allFilePath = basePath + 'outputs/' + dataType + '.' + province.name + '.all.json';
-    var finalRows = _.uniqBy(province.rows, '注册证书号');
-    if (finalRows.length !== province.totalNum && fs.exists(tmpFilePath)) {// merge last result rows.
-        var lastRows = JSON.parse(fs.read(tmpFilePath));
-        finalRows = _.unionBy(finalRows, lastRows, '注册证书号');
+    fs.write(tmpFilePath, JSON.stringify(province.rows, null, 2), 'w');
+    var msg = province.rows.length + '/' + province.totalNum;
+    if (province.rows.length === province.totalNum) {
+        fs.write(allFilePath, JSON.stringify(province.rows, null, 2), 'w');
     }
-    fs.write(tmpFilePath, JSON.stringify(finalRows, null, 2), 'w');
-    var msg = finalRows.length + '/' + province.totalNum;
-    if (finalRows.length === province.totalNum) {
-        fs.write(allFilePath, JSON.stringify(finalRows, null, 2), 'w');
-    }
-    province.lastNum = finalRows.length;
-    return msg;
+    casper.log('========' + province.name + '========downloaded========' + msg, 'info');
 }
