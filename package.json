@@ -4,12 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/zhujianbu/run.js"
+    "start": "node src/zhujianbu/run.js --type=1",
+    "convert": "node src/zhujianbu/convert.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "lodash": "^4.11.1",
+    "minimist": "^1.2.0",
     "to-csv": "^0.1.1"
   }
 }

@@ -5,6 +5,8 @@
 
 var fs = require('fs');
 var currentFile = require('system').args[3];
+var dataType = require('system').args[4];
+var provinceName = require('system').args[5];
 var curFilePath = fs.absolute(currentFile).split('/');
 
 // I only bother to change the directory if we weren't already there when invoking casperjs
@@ -18,27 +20,32 @@ var _ = require('lodash');
 var casper = require('casper').create(
     {
         verbose: true,
-        logLevel: 'debug'
+        logLevel: 'info'
     }
 );
 
 var htmlParser = require('../common/htmlParser');
 
+
 var basePath = curFilePath + '/';
+var configPath = basePath + 'config/' + dataType + '.' + 'provinces.json';
 
-var seedLink = 'http://219.142.101.79/regist/wfRegister.aspx?type=1';
+var seedLink = 'http://219.142.101.79/regist/wfRegister.aspx?type=' + dataType;
 
-var provinces = {};
+var allProvinces;
 var suites = [];
-
 casper
     .start(seedLink)
     .then(function getAllProvince() {// get all province list.
-        var allProvinces = this.evaluate(function () {
+        allProvinces = this.evaluate(function (name) {
             return __utils__
                 .findAll('select#ddlManageDep option')
                 .filter(function (el) {
-                    return el.value !== '%' && ( el.value === '63' || el.value === '54');
+                    if (name) {
+                        return el.innerText === name
+                    } else {
+                        return el.value !== '%';
+                    }
                 })
                 .map(function (el) {
                     return {
@@ -49,12 +56,10 @@ casper
                         // totalNum: 0
                     };
                 });
-        });
-        for (var i = 0; i < allProvinces.length; i++) {
-            var p = allProvinces[i];
-            var f = generateSuit.call(this, seedLink, p.name, p.value);
-            suites.push(f);
-        }
+        }, provinceName);
+        suites = allProvinces.map(function (p) {
+            return generateSuite.call(this, seedLink, p);
+        })
     })
 ;
 
@@ -65,6 +70,7 @@ var check = function () {
         currentSuite++;
         casper.run(check);
     } else {
+        updateProvincesConfig();
         this.echo("All done.");
         this.exit();
     }
@@ -72,36 +78,29 @@ var check = function () {
 
 casper.run(check);
 
-function getProvincesConfig() {
-    return JSON.parse(fs.read(basePath + 'provinces.json'));
-}
-
 function updateProvincesConfig() {
-    var provincesConf = getProvincesConfig();
-    _.each(provinces, function (p) {
-        provincesConf[p.name] = _.pick(p, ['name', 'value', 'maxPageSize', 'totalNum', 'done']);
+    var provincesConf = fs.exists(configPath) ? JSON.parse(fs.read(configPath)) : {};
+    allProvinces.forEach(function (p) {
+        provincesConf[p.name] = provincesConf[p.name] || {};
+        _.extend(provincesConf[p.name], _.pick(p, ['value', 'maxPageSize', 'totalNum']));
     });
-
-    fs.write(basePath + 'provinces.json'
-        , JSON.stringify(provincesConf, null, 2)
-        , 'w');
+    fs.write(configPath, JSON.stringify(provincesConf, null, 2), 'w');
 
 }
 
-function generateSuit(link, _name, _value) {
+function generateSuite(link, province) {
     return function () {
-        this.log('========Start:' + _name, 'info');
+        this.log('========Start:' + province.name, 'info');
         this
             .start(link, function setProvince() {// set province value in dropdown list.
                 this.evaluate(function (v) {
                     document.querySelector('select#ddlManageDep').value = v;
-                    __utils__.echo('[[[' + v + ']]]')
-                }, _value);
+                }, province.value);
             })
             .thenClick('input[type=submit][name=Button1]', function submit() {// click search button
-                var maxPageSize = htmlParser.parseMaxPageSize.call(this);
-                var totalNum = htmlParser.parseTotalNum.call(this);
-                this.log('========totalNum: ' + totalNum + ' - Page: ' + maxPageSize, 'info');
+                province.maxPageSize = htmlParser.parseMaxPageSize.call(this);
+                province.totalNum = htmlParser.parseTotalNum.call(this);
+                this.log('========totalNum: ' + province.totalNum + ' - totalPage: ' + province.maxPageSize, 'info');
             })
     }
 }
