@@ -20,12 +20,11 @@ var _ = require('lodash');
 var casper = require('casper').create(
     {
         verbose: true,
-        logLevel: 'debug'
+        logLevel: 'info'
     }
 );
 
 var htmlParser = require('../common/htmlParser');
-
 
 var basePath = curFilePath + '/';
 var configPath = basePath + 'config/' + dataType + '.' + 'provinces.json';
@@ -38,42 +37,56 @@ if (!provincesConf[provinceName]) process.exit(0);
 var province = provincesConf[provinceName];
 province.name = provinceName;
 province.rows = [];
-console.log(JSON.stringify(province));
+casper.log(JSON.stringify(province), 'debug');
 
-casper.log('========Start:' + province.name, 'info');
-casper
-    .start(seedLink, function setProvince() {// set province value in dropdown list.
-        this.evaluate(function (v) {
-            document.querySelector('select#ddlManageDep').value = v;
-        }, province.value);
-        this.click('input[type=submit][name=Button1]');
-    })
-    .then(function () {
-            province.header = htmlParser.parseTH.call(this);
-            this.log(JSON.stringify(province.header), 'debug');
-            this.repeat(province.maxPageSize, function next() {// click next page button.
-                    var curPageSize = htmlParser.parseCurPageSize.call(this);
-                    this.log('Page: ' + curPageSize + '/' + province.maxPageSize, 'info');
-                    var rows = htmlParser.parseTR.call(this);
-                    for (var i = 0; i < rows.length; i++) {
-                        var _obj = _.zipObject(province.header, rows[i]);
-                        _obj['地区'] = province.name;
-                        province.rows.push(_obj);
-                    }
-                    if (curPageSize < province.maxPageSize) {
-                        this.click('#LinkButton3');
-                    }
-                })
-                .then(function done() {
-                    var msg = output(province);
+function generateSuite() {
+    return function () {
+        casper.log('========Start:' + province.name, 'info');
+        casper
+            .start(seedLink, function setProvince() {// set province value in dropdown list.
+                this.evaluate(function (v) {
+                    document.querySelector('select#ddlManageDep').value = v;
+                }, province.value);
+                this.click('input[type=submit][name=Button1]');
+            })
+            .then(function () {
+                    province.header = htmlParser.parseTH.call(this);
+                    this.log(JSON.stringify(province.header), 'debug');
+                    this.repeat(province.maxPageSize, function next() {// click next page button.
+                            var curPageSize = htmlParser.parseCurPageSize.call(this);
+                            this.log('Page: ' + curPageSize + '/' + province.maxPageSize, 'info');
+                            var rows = htmlParser.parseTR.call(this);
+                            for (var i = 0; i < rows.length; i++) {
+                                var _obj = _.zipObject(province.header, rows[i]);
+                                _obj['地区'] = province.name;
+                                this.log(JSON.stringify(_obj), 'debug');
+                                province.rows.push(_obj);
+                            }
+                            if (curPageSize < province.maxPageSize) {
+                                this.click('#LinkButton3');
+                            }
+                        })
+                        .then(function done() {
+                            var msg = output(province);
+                            this.log(province.name + ' : ' + msg, 'info');
+                            updateProvincesConfig();
+                        })
+                }
+            );
+    }
+}
+var check = function () {
+    if (province.lastNum !== undefined && province.lastNum === province.totalNum) {
+        casper.log('Fully downloaded!', 'info');
+        casper.exit(0);
+    } else {
+        var _suite = generateSuite();
+        _suite.call(casper);
+        casper.run(check);
+    }
+};
+check();
 
-                    this.log(province.name + ' : ' + msg, 'info');
-                    updateProvincesConfig();
-                    this.exit(0);
-                })
-        }
-    );
-casper.run();
 
 function getProvincesConfig() {
     return JSON.parse(fs.read(configPath));

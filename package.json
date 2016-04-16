@@ -4,14 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/zhujianbu/run.js --type=1",
+    "config": "node src/zhujianbu/run.js --task=config",
+    "download": "node src/zhujianbu/run.js --task=download",
     "convert": "node src/zhujianbu/convert.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "async": "^2.0.0-rc.3",
+    "fast-csv": "^1.1.0",
+    "json2csv": "^3.2.0",
     "lodash": "^4.11.1",
-    "minimist": "^1.2.0",
-    "to-csv": "^0.1.1"
+    "minimist": "^1.2.0"
   }
 }
