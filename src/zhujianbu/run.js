@@ -1,6 +1,7 @@
 /**
  * Created by steven on 16/4/16.
  */
+'use strict';
 
 const fs = require('fs');
 const assert = require('assert');
@@ -14,6 +15,7 @@ assert.ok(dataType === 1 || dataType === 2, 'Argv Error: Invalid data type.<1|2>
 
 const spawn = require('child_process').spawn;
 
+var configPath = __dirname + '/config/';
 
 var tasks = {
     config: function () {
@@ -26,29 +28,37 @@ var tasks = {
         var filePath = _checkExecFile('download.js');
         var provinceNames = getProvinces(argv._[1]);
         console.log('Provinces will be downloaded: ' + JSON.stringify(provinceNames));
-        async.mapLimit(provinceNames, 4, function (pname) {
+        async.map(provinceNames, function (pname) {
             if (pname) spawnPs(filePath, dataType, pname);
         }, function (err, results) {
             console.log('Task done!');
-        })
+        });
+        // var q = async.queue(function (task) {
+        //     if (task) spawnPs(filePath, dataType, task);
+        // });
+        // q.drain = function () {
+        //     console.log('All provinces are downloaded!');
+        // };
+        // q.push(provinceNames);
     }
 };
 
 var task = tasks[argv.task];
 if (task) task();
 
-function getProvinces(name) {
-    var configPath = __dirname + '/config/' + dataType + '.' + 'provinces.json';
-    var provincesObj = JSON.parse(fs.readFileSync(configPath));
-    var pNames = [];
-    _.chain(provincesObj).toPairs().sortBy(item => item[1].totalNum)
-        .each(
-            function(pair) {
-                var k = pair[0];
-                var obj = pair[1];
+function _getConf(name) {
+    let results = [];
+    let reg = new RegExp(`^${dataType}.([\u4E00-\u9FA5]+).json$`)
+    fs.readdirSync(configPath)
+        .forEach(function (filename) {
+            let matches = filename.match(reg);
+            if (matches) {
+                let k = matches[1];// province name.
+                let obj = require(configPath + filename);
                 if (obj.totalNum > 0) {
                     if (obj.lastNum !== obj.totalNum) {
-                        pNames.push(k)
+                        obj.name = k;
+                        results.push(obj);
                     } else {
                         if (k === name) console.log(k + ' is already fully downloaded!');
                     }
@@ -56,7 +66,13 @@ function getProvinces(name) {
                     if (k === name) console.log(k + ' has 0 results!');
                 }
             }
-        ).value();
+        });
+    return results;
+}
+
+function getProvinces(name) {
+    var confArr = _getConf(name);
+    var pNames = _.chain(confArr).sortBy('totalNum').map('name').value();
     return name ? _.filter(pNames, pname => pname === name) : pNames;
 }
 
@@ -76,8 +92,5 @@ function spawnPs() {
     });
     ps.stderr.on('data', function (data) {
         console.log(data.toString().replace("\n", ""));
-    });
-    ps.on('exit', function () {
-        console.log('End');
     });
 }

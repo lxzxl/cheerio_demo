@@ -32,14 +32,12 @@ var casper = require('casper').create(
 var htmlParser = require('../common/htmlParser');
 
 var basePath = curFilePath + '/';
-var configPath = basePath + 'config/' + dataType + '.' + 'provinces.json';
+var configPath = basePath + 'config/' + dataType + '.' + provinceName + '.json';
 var seedLink = 'http://219.142.101.79/regist/wfRegister.aspx?type=' + dataType;
 
-var provincesConf = getProvincesConfig();
+if (!fs.exists(configPath)) process.exit(0);
 
-if (!provincesConf[provinceName]) process.exit(0);
-
-var province = provincesConf[provinceName];
+var province = getProvinceConfig();
 province.name = provinceName;
 loadTmpRows(province);
 
@@ -69,7 +67,7 @@ function generateSuite() {
                                     if (province.rows.length === province.totalNum) {
                                         this.log('========Reach Max Num========', 'info');
                                         saveData(province);
-                                        updateProvincesConfig(province);
+                                        updateProvinceConfig(province);
                                         this.exit(0);
                                     }
                                 }
@@ -81,14 +79,15 @@ function generateSuite() {
                         })
                         .then(function final() {
                             saveData(province);
-                            updateProvincesConfig(province);
+                            updateProvinceConfig(province);
                         })
                 }
             );
     }
 }
 var check = function () {
-    if (province.lastNum !== undefined && province.lastNum === province.totalNum) {
+    if (province.rows.length === province.totalNum || province.lastNum === province.totalNum) {
+        if (province.lastNum === undefined) updateProvinceConfig(province);
         casper.log('Fully downloaded!', 'info');
         casper.exit(0);
     } else {
@@ -100,14 +99,14 @@ var check = function () {
 check();
 
 
-function getProvincesConfig() {
+function getProvinceConfig() {
     return JSON.parse(fs.read(configPath));
 }
 
-function updateProvincesConfig(province) {
-    var provincesConf = getProvincesConfig();
-    provincesConf[province.name].lastNum = province.rows.length;
-    fs.write(configPath, JSON.stringify(provincesConf, null, 2), 'w');
+function updateProvinceConfig(province) {
+    var provinceConf = getProvinceConfig();
+    provinceConf.lastNum = province.rows.length;
+    fs.write(configPath, JSON.stringify(provinceConf, null, 2), 'w');
 }
 
 function loadTmpRows(province) {

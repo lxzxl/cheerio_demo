@@ -31,8 +31,7 @@ var casper = require('casper').create(
 var htmlParser = require('../common/htmlParser');
 
 
-var basePath = curFilePath + '/';
-var configPath = basePath + 'config/' + dataType + '.' + 'provinces.json';
+var basePath = curFilePath + '/config/';
 
 var seedLink = 'http://219.142.101.79/regist/wfRegister.aspx?type=' + dataType;
 
@@ -83,13 +82,12 @@ var check = function () {
 casper.run(check);
 
 function updateProvincesConfig() {
-    var provincesConf = fs.exists(configPath) ? JSON.parse(fs.read(configPath)) : {};
     allProvinces.forEach(function (p) {
-        provincesConf[p.name] = provincesConf[p.name] || {};
-        _.extend(provincesConf[p.name], _.pick(p, ['value', 'maxPageSize', 'totalNum']));
+        var configPath = basePath + dataType + '.' + p.name + '.json';
+        var pConf = fs.exists(configPath) ? JSON.parse(fs.read(configPath)) : {};
+        _.extend(pConf, _.pick(p, ['value', 'maxPageSize', 'totalNum']));
+        fs.write(configPath, JSON.stringify(pConf, null, 2), 'w');
     });
-    fs.write(configPath, JSON.stringify(provincesConf, null, 2), 'w');
-
 }
 
 function generateSuite(link, province) {

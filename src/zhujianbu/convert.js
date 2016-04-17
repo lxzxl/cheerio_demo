@@ -1,6 +1,7 @@
 /**
  * Created by steven on 16/4/16.
  */
+'use strict';
 
 var fs = require('fs');
 var csv = require('fast-csv');
