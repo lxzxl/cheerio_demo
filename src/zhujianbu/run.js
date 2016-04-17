@@ -10,14 +10,14 @@ const _ = require('lodash');
 const async = require('async');
 
 const argv = parseArgs((process.argv.slice(2)));
-var dataType = argv._[0];
+const dataType = argv._[0];
 assert.ok(dataType === 1 || dataType === 2, 'Argv Error: Invalid data type.<1|2>')
 
 const spawn = require('child_process').spawn;
 
-var configPath = __dirname + '/config/';
+const configPath = __dirname + '/config/';
 
-var tasks = {
+const tasks = {
     config: function () {
         var filePath = _checkExecFile('updateProvincesConf.js');
         var args = [filePath, dataType];
