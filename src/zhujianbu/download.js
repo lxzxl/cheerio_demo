@@ -21,7 +21,7 @@ var Set = require('collections/set');
 var casper = require('casper').create(
     {
         verbose: true,
-        logLevel: 'debug',
+        logLevel: 'info',
         pageSettings: {
             loadImages: false,        // do not load images
             loadPlugins: false         // do not load NPAPI plugins (Flash, Silverlight, ...)
@@ -58,18 +58,23 @@ function generateSuite() {
                     this.log(JSON.stringify(province.header), 'debug');
                     this.repeat(province.maxPageSize, function next() {// click next page button.
                             var curPageSize = htmlParser.parseCurPageSize.call(this);
-                            this.log('========'+province.name + '====Page====' + curPageSize + '/' + province.maxPageSize, 'info');
+                            this.log('========' + province.name + '====Page====' + curPageSize + '/' + province.maxPageSize, 'info');
                             var rows = htmlParser.parseTR.call(this);
+                            var isNewRows = false;
                             for (var i = 0; i < rows.length; i++) {
                                 var _obj = _.zipObject(province.header, rows[i]);
                                 _obj['地区'] = province.name;
-                                if (province.rows.add(_obj) && province.rows.length === province.totalNum) {
-                                    this.log('========Reach Max Num========', 'info');
-                                    saveData(province);
-                                    updateProvincesConfig(province);
-                                    this.exit(0);
+                                if (province.rows.add(_obj)) {
+                                    if (!isNewRows) isNewRows = true;
+                                    if (province.rows.length === province.totalNum) {
+                                        this.log('========Reach Max Num========', 'info');
+                                        saveData(province);
+                                        updateProvincesConfig(province);
+                                        this.exit(0);
+                                    }
                                 }
                             }
+                            if (isNewRows) saveData(province);
                             if (curPageSize < province.maxPageSize) {
                                 this.click('#LinkButton3');
                             }

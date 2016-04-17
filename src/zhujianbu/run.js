@@ -41,17 +41,22 @@ function getProvinces(name) {
     var configPath = __dirname + '/config/' + dataType + '.' + 'provinces.json';
     var provincesObj = JSON.parse(fs.readFileSync(configPath));
     var pNames = [];
-    _.forIn(provincesObj, function (obj, k) {
-        if (obj.totalNum > 0) {
-            if (obj.lastNum !== obj.totalNum) {
-                pNames.push(k)
-            } else {
-                if (k === name) console.log(k + ' is already fully downloaded!');
+    _.chain(provincesObj).toPairs().sortBy(item => item[1].totalNum)
+        .each(
+            function(pair) {
+                var k = pair[0];
+                var obj = pair[1];
+                if (obj.totalNum > 0) {
+                    if (obj.lastNum !== obj.totalNum) {
+                        pNames.push(k)
+                    } else {
+                        if (k === name) console.log(k + ' is already fully downloaded!');
+                    }
+                } else {
+                    if (k === name) console.log(k + ' has 0 results!');
+                }
             }
-        } else {
-            if (k === name) console.log(k + ' has 0 results!');
-        }
-    });
+        ).value();
     return name ? _.filter(pNames, pname => pname === name) : pNames;
 }
 
