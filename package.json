@@ -12,9 +12,11 @@
   "license": "ISC",
   "dependencies": {
     "async": "^2.0.0-rc.3",
+    "cheerio": "^0.20.0",
     "collections": "^3.0.0",
     "fast-csv": "^1.1.0",
     "lodash": "^4.11.1",
-    "minimist": "^1.2.0"
+    "minimist": "^1.2.0",
+    "simplecrawler": "^0.7.0"
   }
 }
