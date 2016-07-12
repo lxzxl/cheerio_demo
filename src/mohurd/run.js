@@ -4,6 +4,8 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
+const csv = require('fast-csv');
 const URI = require("urijs");
 const cheerio = require('cheerio');
 const Crawler = require("simplecrawler");
