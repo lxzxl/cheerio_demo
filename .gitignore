@@ -42,3 +42,4 @@ jspm_packages
 out
 gen
 # Created by .ignore support plugin (hsz.mobi)
+/src/zhujianbu/csvOutputs/
