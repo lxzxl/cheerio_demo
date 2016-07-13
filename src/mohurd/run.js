@@ -9,18 +9,17 @@ const csv = require('fast-csv');
 const URI = require("urijs");
 const cheerio = require('cheerio');
 
+const Utils = require('../Utils');
+
 // save to csv file.
 const csvFilePath = __dirname + '/output.csv';
 const csvStream = csv.createWriteStream({headers: true});
 const writableStream = fs.createWriteStream(csvFilePath);
-writableStream.on('finish', function () {
-    console.log('Converted!');
-});
+
 csvStream.pipe(writableStream);
 
 
 function save(data) {
-    console.log(JSON.stringify(data));
     csvStream.write(data);
     // console.log(file + ' -- ' + rows.length + ' -- Loaded!');
 };
@@ -40,7 +39,7 @@ const jsonPath = '/jianguanfabuweb/handler/GetCompanyData.ashx';
 const jsonParam = '?method=GetEngineersData&name=&card=&stampnum=&company=&major=2&PageIndex=1&PageSize=';
 const defaultJsonPathURI = new URI(jsonPath + jsonParam);
 defaultJsonPathURI.setQuery({
-    PageSize: 5
+    PageSize: 10
 });
 
 //detail page.
@@ -51,28 +50,31 @@ const detailLinkRegex = /href="((?:certifiedEngineers_details\.aspx).*?)"/g;
 const crawler = Crawler.crawl(seedHost);
 
 crawler.initialPath = seedPath;
-crawler.interval = 500;
-crawler.maxConcurrency = 4;
+crawler.interval = 250;
+crawler.maxConcurrency = 5;
 crawler.maxDepth = 0;
 crawler.urlEncoding = 'utf-8';
 
 const referrer = seedHost + seedPath;
 
 var onlyHtml = crawler.addFetchCondition(function (parsedURL) {
-    return parsedURL.uriPath.match(/(GetCompanyData\.ashx|certifiedEngineers_details\.aspx)$/);
+    return parsedURL.uriPath.match(/\/(GetCompanyData\.ashx|certifiedEngineers_details\.aspx)$/);
 });
 
 crawler.on("crawlstart", function () {
     console.log("Crawl starting");
 });
 
-crawler.on("queueadd", function (queueItem, parsedURL) {
-    switch (parsedURL.uriPath) {
-        case jsonPath:
-            queueItem.name = 'test-name';
-            break;
-    }
+const errFilePath = __dirname + '/error.csv';
+const errStream = fs.createWriteStream(errFilePath);
+crawler.on('fetcherror', function (queueItem, response) {
+    console.log('Error: ' + queueItem.url);
+    errStream.write(queueItem.url + '\n');
 });
+crawler.on('fetchclienterror', function (queueItem, errorData) {
+    console.log('Client Error: ' + queueItem.url + errorData);
+});
+
 crawler.on("fetchcomplete", function (queueItem, responseBuffer, response) {
     // let _continue = this.wait();
     let $, curURIQuery, major, majorName;
@@ -100,22 +102,18 @@ crawler.on("fetchcomplete", function (queueItem, responseBuffer, response) {
             });
             break;
         case jsonPath:
-            // let hrefReg = new RegExp('href=\"certifiedEngineers_details\.aspx\?personid=.*?&major=2\"');
             let data = JSON.parse(responseBuffer);
-            let m;
-            while ((m = detailLinkRegex.exec(data.tb)) !== null) {
-                if (m.index === detailLinkRegex.lastIndex) {
-                    detailLinkRegex.lastIndex++;
-                }
-                // add detail link to queue.
-                let detailLink = m[1];
+            let matches = Utils.getMatches(data.tb, detailLinkRegex, 1);
+            console.log(queueItem.url);
+            console.log('Matches: ' + matches.length);
+            matches.forEach(detailLink=> {
                 let detailLinkURI = new URI(detailLink).absoluteTo(seedPath);
-                console.log(detailLinkURI.resource());
+                // add detail link to queue.
                 crawler.queueURL(detailLinkURI.resource(), {
                     url: referrer,
                     depth: 1
                 });
-            }
+            });
             // if pageCount less than all page, add more jsonPath link to queue.
             curURIQuery = curURI.query(true);
             major = curURIQuery.major;
