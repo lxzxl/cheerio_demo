@@ -8,6 +8,24 @@ const fs = require('fs');
 const csv = require('fast-csv');
 const URI = require("urijs");
 const cheerio = require('cheerio');
+
+// save to csv file.
+const csvFilePath = __dirname + '/output.csv';
+const csvStream = csv.createWriteStream({headers: true});
+const writableStream = fs.createWriteStream(csvFilePath);
+writableStream.on('finish', function () {
+    console.log('Converted!');
+});
+csvStream.pipe(writableStream);
+
+
+function save(data) {
+    console.log(JSON.stringify(data));
+    csvStream.write(data);
+    // console.log(file + ' -- ' + rows.length + ' -- Loaded!');
+};
+
+// crawler
 const Crawler = require("simplecrawler");
 
 // start page.
@@ -57,25 +75,25 @@ crawler.on("queueadd", function (queueItem, parsedURL) {
 });
 crawler.on("fetchcomplete", function (queueItem, responseBuffer, response) {
     // let _continue = this.wait();
-    let $;
+    let $, curURIQuery, major, majorName;
     let curURI = new URI(queueItem.path);
     switch (curURI.path()) {
         case seedPath:
             $ = cheerio.load(responseBuffer);
-            Array.from($('#major option')).forEach(option => {
-                let $option = $(option);
-                let name = $option.text();
-                let major = $option.val();
-                if (allowMajors.includes(name)) {
+            $('#major option').each((i, elem) => {
+                let $elem = $(elem);
+                majorName = $elem.text().trim();
+                major = $elem.val();
+                if (allowMajors.includes(majorName)) {
                     let jsonPathURI = defaultJsonPathURI.clone().setQuery({
                         major,
                     });
                     allowMajorsMapping[major] = {
-                        name,
+                        majorName,
                         jsonPathURI
                     };
                     crawler.queueURL(jsonPathURI.resource(), {
-                        name: name,
+                        name: majorName,
                         url: referrer
                     });
                 }
@@ -98,26 +116,41 @@ crawler.on("fetchcomplete", function (queueItem, responseBuffer, response) {
                     depth: 1
                 });
             }
-            // // if pageCount less than all page, add more jsonPath link to queue.
-            // let curURIQuery = curURI.query(true);
-            // let major = curURIQuery.major;
-            // let curPageIndex = parseInt(curURIQuery.PageIndex) || 1;
-            // if (curPageIndex < data.PageCount) {
-            //     let jsonPathURI = allowMajorsMapping[major].jsonPathURI;
-            //     let name = allowMajorsMapping[major].name;
-            //     jsonPathURI.setQuery({
-            //         PageIndex: curPageIndex + 1
-            //     });
-            //     console.log(jsonPathURI.resource());
-            //     crawler.queueURL(jsonPathURI.resource(), {
-            //         name: name,
-            //         url: referrer
-            //     });
-            // }
+            // if pageCount less than all page, add more jsonPath link to queue.
+            curURIQuery = curURI.query(true);
+            major = curURIQuery.major;
+            let curPageIndex = parseInt(curURIQuery.PageIndex) || 1;
+            if (curPageIndex < data.PageCount) {
+                let jsonPathURI = allowMajorsMapping[major].jsonPathURI;
+                let majorName = allowMajorsMapping[major].majorName;
+                jsonPathURI.setQuery({
+                    PageIndex: curPageIndex + 1
+                });
+                crawler.queueURL(jsonPathURI.resource(), {
+                    name: majorName,
+                    url: referrer
+                });
+            }
             break;
         case detailPath:
+            curURIQuery = curURI.query(true);
+            major = curURIQuery.major;
+            majorName = allowMajorsMapping[major].majorName;
             $ = cheerio.load(responseBuffer);
-            console.log($('.engineer_basic_infor_table_name').text(), '-', $('.zhengshu_table_company_name').text());
+            let name = $('.engineer_basic_infor_table_name').text().trim();
+            $('.zhengshu').each((i, elem)=> {
+                let $elem = $(elem);
+                let title = $elem.find('.zhengshu_head').text().trim();
+                if (title === majorName) {
+                    let company = $elem.find('.zhengshu_table_company_name').text().trim();
+                    save({
+                        majorName,
+                        name,
+                        company
+                    });
+                    return false;
+                }
+            });
             break;
     }
 
@@ -126,7 +159,8 @@ crawler.on("fetchcomplete", function (queueItem, responseBuffer, response) {
 });
 
 crawler.on("complete", function () {
-    console.log("Finished!");
+    csvStream.end();
+    console.log('Csv file generated!');
 });
 
 crawler.start();
